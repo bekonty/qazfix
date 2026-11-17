@@ -1,0 +1,39 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "qazfix"
+version = "0.1.0"
+description = "Restore Kazakh letters (ә ғ қ ң ө ұ ү і һ) in text typed without them."
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+license-files = ["LICENSE", "DATA_LICENSE.md"]
+authors = [{ name = "Bekzat Bolat" }]
+keywords = ["kazakh", "nlp", "diacritics", "diacritics-restoration", "deasciifier", "qazaq"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Topic :: Text Processing :: Linguistic",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "ruff"]
+build = ["wordfreq"]
+
+[project.scripts]
+qazfix = "qazfix.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/bekonty/qazfix"
+Issues = "https://github.com/bekonty/qazfix/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/qazfix"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

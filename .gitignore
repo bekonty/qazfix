@@ -1,0 +1,16 @@
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+.venv/
+# large training data stays out of git
+corpus/
+*.txt.gz
+kkwiki.txt
+uv.lock
+data/
+kk_full.txt
+russian.txt
+UD_Kazakh-KTB/
