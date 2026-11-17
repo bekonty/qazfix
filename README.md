@@ -1,5 +1,9 @@
 # qazfix
 
+[![CI](https://github.com/bekonty/qazfix/actions/workflows/ci.yml/badge.svg)](https://github.com/bekonty/qazfix/actions/workflows/ci.yml)
+[![Demo](https://img.shields.io/badge/demo-try%20it-0E6B68)](https://bekonty.github.io/qazfix/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-1D2340)](LICENSE)
+
 **Restore Kazakh letters in text typed without them, and the vowels chat shorthand drops.**
 
 ```console
