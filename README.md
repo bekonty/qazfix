@@ -47,7 +47,12 @@ qazfix.restore("Ертен встреча бар ма?")         # 'Ертең �
 ```bash
 qazfix "Казакстан Республикасы"     # → Қазақстан Республикасы
 cat message.txt | qazfix -          # fix a whole file
+qazfix fix chat.txt --keep mywords.txt   # never change these words (names, slang), one per line
 ```
+
+`qazfix.restore(text, keep={"прога", "калк"})` does the same from Python. On the demo page this
+list builds itself: press Backspace right after a correction and that word is never changed again
+(stored in your browser only).
 
 ## Keyboard mode (T9-style suggestions)
 
@@ -178,6 +183,29 @@ treebank test could not, and drove most of the features above:
 | rare/noisy exact matches | `казыр`, `шукыр` | fixed: frequent ы→і reading wins |
 | shorthand with merged words, cut endings | `бараснба`, `бармайм` | open |
 
+### Hand-checked accuracy
+
+One chat (196 messages, two people) was corrected by hand by a native speaker. The messages stay
+private; these are the totals. A word counts as in scope when the correction only adds Kazakh
+letters or puts back dropped ы/і. Corrections that change more than that (`ба → бе`,
+`мер → мен`, `болд → болды`) were set aside: 41 words.
+
+| | v0.5 | v0.5 + words the user undid once |
+|---|---:|---:|
+| words that needed letters, fixed | 83 / 127 (65%) | 83 / 127 (65%) |
+| correct words changed by mistake | 89 | 43 |
+
+Most mistakes on correct words are names and loan slang that look like Kazakh words with letters
+missing: one friend's name, written the Russian way, was changed 26 times; slang such as
+`прога → проға` and `калк → қалқ` too. Spelling those the Kazakh way
+is right in formal text (the held-out test drops 0.8 points if capitalised unknown words are left
+alone), so this is a per-person choice. The second column replays the chat in order and leaves a
+word alone after the first time it was wrongly changed, which is what Backspace-undo does on the
+demo page and `--keep` does on the command line.
+
+Open: merged words and cut endings (`бараснба`, `бармайм`), and a larger Russian guard (200k
+words: 3 fewer mistakes here, 0.05 points lower on the treebank, not shipped).
+
 To measure on your own messages: `scripts/pair_eval.py` (keep chat files out of git).
 
 ## How it works
@@ -223,9 +251,8 @@ python scripts/compare.py kk_full.txt data/ud_train.txt --test data/ud_test_clea
     --wiki kkwiki_words.txt
 ```
 
-**Next step: real typed text.** Wikipedia is formal. A few hundred real chat messages with
-hand-corrected versions (`scripts/pair_eval.py`) would show how people actually type, and are the
-honest test for a keyboard.
+**Next step: more real typed text.** One hand-checked chat is a start (see above). Messages from
+more people, corrected by hand with `scripts/pair_eval.py`, are the honest test for a keyboard.
 
 ## Roadmap
 
@@ -235,7 +262,7 @@ honest test for a keyboard.
 - [x] v0.3: JavaScript port, exact Python-vs-JS check in CI, demo page on GitHub Pages
 - [x] v0.4: hunspell + Apertium dictionaries, dropped-vowel shorthand, Russian stems, pruning
 - [x] v0.5: Kazakh Wikipedia word frequencies (29.6M words): 98.2% held-out, 99.7% top-3
-- [ ] Hand-checked accuracy on real chat messages
+- [x] v0.5.1: hand-checked accuracy on a real chat; personal word list (`--keep`, undo on the demo page)
 - [ ] Merged words and cut endings in chat (`бараснба` = барасың ба)
 - [ ] Suggestion bar in the Kazakh Adaptive Keyboard; Android keyboard
 

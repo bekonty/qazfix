@@ -15,7 +15,7 @@ from pathlib import Path
 from .letters import LATIN_LOOKALIKES, is_cyrillic_word, strip
 from .model import Model
 
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 __all__ = ["Model", "load_model", "restore", "strip"]
 
 _TOKEN = re.compile(r"[^\W\d_]+(?:[-'’][^\W\d_]+)*", re.UNICODE)
@@ -40,14 +40,20 @@ def _apply_case(template: str, lower: str) -> str:
     return lower
 
 
-def _fix_token(token: str, model: Model) -> str:
-    if not is_cyrillic_word(token):
-        return token  # English, numbers, Latin-script Kazakh: untouched
+def _fix_token(token: str, model: Model, keep=()) -> str:
+    if not is_cyrillic_word(token) or token.lower() in keep:
+        return token  # English, numbers, Latin-script Kazakh, the user's own words: untouched
     token = "".join(LATIN_LOOKALIKES.get(c, c) for c in token)
     return _apply_case(token, model.restore_word(token.lower()))
 
 
-def restore(text: str, model: Model | None = None) -> str:
-    """Restore Kazakh letters in `text`. Spacing, punctuation and case are kept."""
+def restore(text: str, model: Model | None = None, keep=()) -> str:
+    """Restore Kazakh letters in `text`. Spacing, punctuation and case are kept.
+
+    `keep`: lowercase words to leave exactly as typed, such as names and slang
+    ("прога", "калк"). This is the personal dictionary a keyboard builds when
+    the user undoes a correction.
+    """
     m = model or load_model()
-    return _TOKEN.sub(lambda mt: _fix_token(mt.group(0), m), text)
+    keep = {w.lower() for w in keep}
+    return _TOKEN.sub(lambda mt: _fix_token(mt.group(0), m, keep), text)

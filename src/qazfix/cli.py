@@ -29,7 +29,10 @@ def _read_counts(paths: list[str]) -> Counter:
 def cmd_fix(args: argparse.Namespace) -> int:
     model = load_model(args.model)
     text = sys.stdin.read() if args.text in (None, "-") else args.text
-    sys.stdout.write(restore(text, model) + ("" if text.endswith("\n") else "\n"))
+    keep = ()
+    if args.keep:
+        keep = [w.strip() for w in Path(args.keep).read_text(encoding="utf-8").splitlines() if w.strip()]
+    sys.stdout.write(restore(text, model, keep) + ("" if text.endswith("\n") else "\n"))
     return 0
 
 
@@ -110,6 +113,7 @@ def main(argv: list[str] | None = None) -> int:
     f = sub.add_parser("fix", help="restore text (default command)")
     f.add_argument("text", nargs="?", help="text to fix, or - to read stdin")
     f.add_argument("--model", help="model file (default: bundled)")
+    f.add_argument("--keep", help="file of words to leave as typed (names, slang), one per line")
     f.set_defaults(func=cmd_fix)
 
     sg = sub.add_parser("suggest", help="show the keyboard suggestion bar for typed words")

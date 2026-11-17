@@ -321,9 +321,10 @@ export class Qazfix {
     return out.join("");
   }
 
-  restore(text) {
+  // keep: a Set of lowercase words to leave as typed (the user's names and slang)
+  restore(text, keep = null) {
     return text.replace(TOKEN, (token) => {
-      if (!isCyrillicWord(token)) return token;
+      if (!isCyrillicWord(token) || (keep && keep.has(token.toLowerCase()))) return token;
       const t = [...token].map((c) => LATIN_LOOKALIKES[c] ?? c).join("");
       return applyCase(t, this.restoreWord(t.toLowerCase()));
     });
