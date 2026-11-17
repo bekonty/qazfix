@@ -38,6 +38,49 @@ qazfix "Казакстан Республикасы"     # → Қазақста�
 cat message.txt | qazfix -          # fix a whole file
 ```
 
+## Keyboard mode (T9-style suggestions)
+
+For keyboards: a 3-word suggestion bar, auto-correct only when confident, and completion while
+typing. About 0.04 ms per keystroke.
+
+```console
+$ qazfix suggest казак кыргызды Ок
+казак:  қазақ 96%  |  қазәқ 1%  |  қазак 1%   (auto-correct → қазақ)
+кыргызды:  кіргізді 60%  |  қырғызды 35%  |  қыргызды 3%
+Ок:  Ок 100%
+$ qazfix complete казакс
+қазақстан  |  қазақстанның  |  қазақстанмен
+```
+
+```python
+from qazfix.keyboard import Predictor
+
+p = Predictor()
+p.candidates("казак")          # suggestion bar after a word
+p.should_autocorrect("казак")  # 'қазақ' → replace on space; None → just show suggestions
+p.complete("казакст")          # suggestion bar while typing
+```
+
+Measured on the same held-out test text (`scripts/keyboard_eval.py`):
+
+| | normal typing (і as и) | chat typing (і as ы) |
+|---|---:|---:|
+| right word is suggestion #1 | 89.7% | 76.1% |
+| right word is in the 3-word bar | **96.8%** | 85.3% |
+| keystrokes saved by completion | 10.7% | 9.7% |
+
+Auto-correct on space happens only above a confidence threshold. A wrong auto-replacement annoys
+people far more than a suggestion they have to tap, so the default (0.8) favours precision:
+
+| threshold | precision (replacements that were right) | coverage (fixes done automatically) |
+|---:|---:|---:|
+| 0.5 | 93.6% | 80.7% |
+| 0.7 | 97.6% | 65.9% |
+| **0.8 (default)** | **98.6%** | **59.3%** |
+| 0.95 | 99.7% | 43.8% |
+
+(normal typing; the full table, including chat typing, comes from `scripts/keyboard_eval.py`)
+
 ## How well does it work?
 
 Test: take **correctly written** Kazakh sentences, strip the special letters the way a keyboard
@@ -116,12 +159,15 @@ Any plain Kazakh text works as a corpus, as do `word count` frequency lists.
 
 - [x] v0.1: library, CLI, character-context model, Russian guard, honest evaluation
 - [x] v0.1.1: fixes from real chat testing (ы typed for і, chat words, already-correct words)
+- [x] v0.2: keyboard mode: ranked suggestions, confident auto-correct, completion
+- [ ] JavaScript port (`qazfix.js`) with a Python-vs-JS cross-check test
+- [ ] Suggestion bar in the Kazakh Adaptive Keyboard web app
 - [ ] Hand-checked accuracy on real chat messages
 - [ ] Leave Russian words with Kazakh endings alone (`списокта`, `этажго`)
 - [ ] Train on Kazakh Wikipedia and publish before/after numbers
 - [ ] Two-word context for true ambiguities (`казак`/`қазақ`, `он`/`өң`)
 - [ ] Browser demo on GitHub Pages
-- [ ] Browser extension and keyboard integration
+- [ ] Android keyboard (same model file)
 
 ## License
 

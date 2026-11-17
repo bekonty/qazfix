@@ -33,6 +33,25 @@ def cmd_fix(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_suggest(args: argparse.Namespace) -> int:
+    from .keyboard import Predictor
+
+    pred = Predictor(load_model(args.model))
+    for word in args.words:
+        bar = "  |  ".join(f"{s.word} {100 * s.score:.0f}%" for s in pred.candidates(word, n=args.n))
+        auto = pred.should_autocorrect(word)
+        print(f"{word}:  {bar}" + (f"   (auto-correct → {auto})" if auto else ""))
+    return 0
+
+
+def cmd_complete(args: argparse.Namespace) -> int:
+    from .keyboard import Predictor
+
+    pred = Predictor(load_model(args.model))
+    print("  |  ".join(s.word for s in pred.complete(args.prefix, n=args.n)) or "(no completions)")
+    return 0
+
+
 def cmd_build(args: argparse.Namespace) -> int:
     counts = _read_counts(args.corpus)
     russian = []
@@ -58,7 +77,7 @@ def cmd_eval(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    if argv and argv[0] not in ("build", "eval", "fix", "-h", "--help"):
+    if argv and argv[0] not in ("build", "eval", "fix", "suggest", "complete", "-h", "--help"):
         argv.insert(0, "fix")  # `qazfix "text"` is shorthand for `qazfix fix "text"`
     if not argv:
         argv = ["fix", "-"]
@@ -69,6 +88,18 @@ def main(argv: list[str] | None = None) -> int:
     f.add_argument("text", nargs="?", help="text to fix, or - to read stdin")
     f.add_argument("--model", help="model file (default: bundled)")
     f.set_defaults(func=cmd_fix)
+
+    sg = sub.add_parser("suggest", help="show the keyboard suggestion bar for typed words")
+    sg.add_argument("words", nargs="+")
+    sg.add_argument("-n", type=int, default=3)
+    sg.add_argument("--model")
+    sg.set_defaults(func=cmd_suggest)
+
+    c = sub.add_parser("complete", help="complete a partly typed word")
+    c.add_argument("prefix")
+    c.add_argument("-n", type=int, default=3)
+    c.add_argument("--model")
+    c.set_defaults(func=cmd_complete)
 
     b = sub.add_parser("build", help="train a model from Kazakh text or word-frequency files")
     b.add_argument("corpus", nargs="+")

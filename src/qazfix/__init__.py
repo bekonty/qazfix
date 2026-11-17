@@ -15,7 +15,7 @@ from pathlib import Path
 from .letters import LATIN_LOOKALIKES, is_cyrillic_word, strip
 from .model import Model
 
-__version__ = "0.1.1"
+__version__ = "0.2.0"
 __all__ = ["Model", "load_model", "restore", "strip"]
 
 _TOKEN = re.compile(r"[^\W\d_]+(?:[-'’][^\W\d_]+)*", re.UNICODE)
