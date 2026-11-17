@@ -28,6 +28,8 @@ BEAM = 12
 AUTOCORRECT_THRESHOLD = 0.8  # chosen from the measurements in README
 DICT_WEIGHT = 0.9  # trust in the word table for a known word
 Y_WEIGHT = 0.6  # trust in an ы→і word-table match (a guess about the typist's habit)
+SHORTHAND_WEIGHT = 0.85  # dropped vowel put back, matching a dictionary word (баур → бауыр)
+SHORTHAND_GUESS_WEIGHT = 0.6  # ...matching only stem + ending: suggest, rarely auto-correct
 
 
 @dataclass(frozen=True)
@@ -52,18 +54,24 @@ class Predictor:
         s = typed.lower()
         if any(c in SPECIAL for c in s) or s in CHAT_WORDS or LAUGHTER.match(s):
             return [Suggestion(typed, 1.0)]
-        if not any(c in AMBIGUOUS or c == "ы" for c in s):
+        dict_p = self._share(s)
+        y_p = self._y_share(s) if not dict_p and not self.model._keeps_y(s) else {}
+        russian_stem = 0 if dict_p or y_p or s in self.model.russian else self.model._russian_stem(s)
+        if russian_stem:  # списокта: only the Kazakh ending can change
+            return [Suggestion(_match_case(typed, self.model.restore_word(s)), 1.0)]
+        short_p, short_w = ({}, 0.0) if dict_p or y_p or s in self.model.russian else self._shorthand(s)
+        if not short_p and not any(c in AMBIGUOUS or c == "ы" for c in s):
             return [Suggestion(typed, 1.0)]
 
         char_p = self._char_distribution(s)
-        dict_p = self._share(s)
-        y_p = self._y_share(s) if not dict_p else {}
         if dict_p:
             scores = _mix(dict_p, DICT_WEIGHT, char_p)
         elif y_p:
             scores = _mix(y_p, Y_WEIGHT, char_p)
         elif s in self.model.russian:
             scores = _mix({s: 1.0}, 0.7, char_p)
+        elif short_p:
+            scores = _mix(short_p, short_w, char_p)
         else:
             scores = char_p
 
@@ -126,6 +134,27 @@ class Predictor:
                     counts[w] = counts.get(w, 0) + c
         total = sum(counts.values())
         return {w: c / total for w, c in counts.items()} if total else {}
+
+    def _shorthand(self, s: str) -> tuple[dict[str, float], float]:
+        """Spellings with a dropped ы/і put back, and how much to trust them."""
+        options = self.model.shorthand_options(s)
+        if not options:
+            return {}, 0.0
+        total = 0
+        for _, count in options:
+            total += count
+        if total:  # dictionary words: share by frequency
+            dist: dict[str, float] = {}
+            for cand, count in options:
+                w = self.model.restore_word(cand)
+                dist[w] = dist.get(w, 0.0) + count / total
+            return dist, SHORTHAND_WEIGHT
+        best = self.model.restore_word(options[0][0])  # stem + ending only: the model's pick first
+        dist = {best: 1.0 / len(options)}
+        for cand, _ in options[1:]:
+            w = self.model.restore_word(cand)
+            dist[w] = dist.get(w, 0.0) + 1.0 / len(options)
+        return dist, SHORTHAND_GUESS_WEIGHT
 
     def _letter_probs(self, s: str, i: int) -> dict[str, float]:
         opts = OPTIONS[s[i]]

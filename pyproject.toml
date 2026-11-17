@@ -4,11 +4,11 @@ build-backend = "hatchling.build"
 
 [project]
 name = "qazfix"
-version = "0.3.0"
+version = "0.4.0"
 description = "Restore Kazakh letters (ә ғ қ ң ө ұ ү і һ) in text typed without them."
 readme = "README.md"
 requires-python = ">=3.9"
-license = "MIT"
+license = "MIT AND GPL-3.0-only"
 license-files = ["LICENSE", "DATA_LICENSE.md"]
 authors = [{ name = "Bekzat Bolat" }]
 keywords = ["kazakh", "nlp", "diacritics", "diacritics-restoration", "deasciifier", "qazaq"]

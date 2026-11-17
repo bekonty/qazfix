@@ -10,6 +10,7 @@ they deliberately hit every code path: known words, unseen inflections
 
 import json
 import random
+import re
 import sys
 from pathlib import Path
 
@@ -19,7 +20,8 @@ from qazfix.model import Model
 
 SUFFIXES = ["лар", "дың", "ге", "мен", "дагы", "ымыз", "сыз", "кан", "ынан", "тарына"]
 EDGE = [
-    "", "Ок", "окок", "ия", "хахаха", "ХАХАХА", "ахах", "бiз", "БIЗ", "Hello мир",
+    "", "Ок", "окок", "баур", "Бугн", "БУГН", "кеттк", "бз", "колдаймн", "почтт", "списокта", "кыргызды",
+    "Быз суйттык кыргызды", "Джим бараснба бугн", "Четм кайдасндар", "мектептын", "ия", "хахаха", "ХАХАХА", "ахах", "бiз", "БIЗ", "Hello мир",
     "қазір", "Қазақстан", "казак-орыс", "2026 жылы!", "e-mail мен", "ертен,встреча",
     "казак тили", "КАЗАК", "Казак", "кАзАк", "ы", "к", "кк", "ң", "¾ казак ²",
 ]
@@ -28,7 +30,7 @@ EDGE = [
 def main(model_path: str, out_path: str, n: int = 1500, seed: int = 7) -> None:
     rng = random.Random(seed)
     data = json.loads(Path(model_path).read_text(encoding="utf-8"))
-    model = Model(data["words"], data["chars"], set(data["russian"]), data["meta"])
+    model = Model(data["words"], data["chars"], set(data["russian"]), data["meta"], set(data.get("suffixes", [])))
     pred = Predictor(model)
 
     keys = sorted(model.words)
@@ -36,7 +38,15 @@ def main(model_path: str, out_path: str, n: int = 1500, seed: int = 7) -> None:
     words = set(sample)
     words |= {k + rng.choice(SUFFIXES) for k in sample}  # mostly unseen: character model
     words |= {k.replace("и", "ы") for k in sample if "и" in k}  # ы typed for і
-    words |= set(rng.sample(sorted(model.russian), min(300, len(model.russian))))
+    russian = rng.sample(sorted(model.russian), min(300, len(model.russian)))
+    words |= set(russian)
+    sufs = sorted(model.suffixes)
+    if sufs:
+        words |= {r + rng.choice(sufs) for r in russian[:150]}  # списокта: Russian stem + ending
+    # shorthand: drop ы/и from the last syllable (бүгін -> бугн), plus very short words
+    vowel_drop = re.compile(r"([^аеиоуыэюяё])([ыи])([^аеиоуыэюяё])$")
+    words |= {vowel_drop.sub(r"\1\3", k) for k in sample if vowel_drop.search(k)}
+    words |= {k[0] + k[2:] for k in sample if len(k) == 3 and k[1] in "ыи"}
     words = sorted(words)
     cased = [w.capitalize() for w in words[::5]] + [w.upper() for w in words[::17]]
 

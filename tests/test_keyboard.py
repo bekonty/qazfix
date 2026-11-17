@@ -39,7 +39,8 @@ def test_case_preserved(pred):
 
 def test_autocorrect_only_when_confident(pred):
     assert pred.should_autocorrect("казак") == "қазақ"
-    assert pred.should_autocorrect("бугн") is None  # shorthand: unsure, leave it
+    assert pred.should_autocorrect("бугн") == "бүгін"  # dropped vowel put back
+    assert pred.should_autocorrect("почтт") is None  # unknown shorthand: leave it
     assert pred.should_autocorrect("Ок") is None
     assert pred.should_autocorrect("қазақ") is None
 

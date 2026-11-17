@@ -142,7 +142,7 @@
       <span class="hint">Жаза бастаңыз, ұсыныстар осында шығады</span>
     </div>
     <textarea id="text" rows="6" spellcheck="false" autocapitalize="sentences"
-      aria-label="Мәтін" placeholder="Мысалы: биз ертен Алматыга барамыз"></textarea>
+      aria-label="Мәтін" placeholder="Мысалы: биз бугн Алматыга барамыз"></textarea>
   </div>
 
   <div class="actions">
@@ -158,8 +158,9 @@
       <span>ұ</span> <span>ү</span> <span>і</span> <span>һ</span>
     </p>
     <p>Орыс пернетақтасында бұл әріптер жоқ, сондықтан көбі «казак тили» деп жазады. qazfix сөздің контекстіне қарап дұрыс әріпті таңдайды. Сенімді болмаса, өзгертпей, тек ұсыныс береді.</p>
+    <p>Қысқартып жазсаңыз да түсінеді: «баур» → бауыр, «бугн» → бүгін, «кеттк» → кеттік.</p>
     <p>Бәрі браузерде жұмыс істейді: мәтініңіз ешқайда жіберілмейді.</p>
-    <p class="about" lang="en">qazfix restores Kazakh letters in text typed without them. On held-out test text the right word is in the suggestion bar 96.8% of the time, and automatic corrections are right 98.6% of the time. Open source on <a href="https://github.com/bekonty/qazfix">GitHub</a>.</p>
+    <p class="about" lang="en">qazfix restores Kazakh letters in text typed without them. It also puts back vowels dropped in chat shorthand (баур → бауыр). On held-out test text the right word is in the suggestion bar 99.0% of the time, and automatic corrections are right 98.8% of the time. Open source on <a href="https://github.com/bekonty/qazfix">GitHub</a>.</p>
   </section>
 </main>
 
@@ -236,8 +237,14 @@ function suggestFor(word) {
   if (!q || [...word].length < 2) return [];
   const seen = new Set();
   const out = [];
-  // Known words that fit (completions) beat a guess at an unfinished word.
-  for (const s of [...q.complete(word, 3), ...q.candidates(word, 3)]) {
+  // Known words that fit (completions) beat a guess at an unfinished word,
+  // unless the guess is a confident fix of a finished word (баур → бауыр).
+  const cands = q.candidates(word, 3);
+  const completions = q.complete(word, 3);
+  const top = cands[0];
+  const unfinished = completions.some((c) => c.word.toLowerCase().startsWith(top.word.toLowerCase()) && c.word.length > top.word.length);
+  const confident = top.word !== word && top.score >= 0.8 && !unfinished ? [top] : [];
+  for (const s of [...confident, ...completions, ...cands]) {
     if (!seen.has(s.word)) { seen.add(s.word); out.push(s.word); }
   }
   return out;
@@ -300,11 +307,12 @@ document.getElementById("fixall").addEventListener("click", () => {
   if (!q) return;
   const before = text.value;
   const after = q.restore(before);
+  const a = before.split(/(\s+)/), b = after.split(/(\s+)/);
   let changed = 0;
-  for (let i = 0; i < before.length; i++) if (before[i] !== after[i]) changed++;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) changed++;
   text.value = after;
   undo = null;
-  say(changed ? `${changed} әріп түзетілді` : "Түзететін әріп табылмады");
+  say(changed ? `${changed} сөз түзетілді` : "Түзететін сөз табылмады");
   refreshBar();
 });
 

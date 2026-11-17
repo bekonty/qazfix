@@ -62,6 +62,7 @@ def cmd_export_web(args: argparse.Namespace) -> int:
         "words": m.words,
         "chars": m.chars,
         "russian": sorted(m.russian),
+        "suffixes": sorted(m.suffixes),
     }
     Path(args.output).write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     print(f"wrote {args.output} ({Path(args.output).stat().st_size // 1024} KB)")
@@ -73,12 +74,18 @@ def cmd_build(args: argparse.Namespace) -> int:
     russian = []
     if args.russian:
         russian = [w for w in Path(args.russian).read_text(encoding="utf-8").split()]
+    lexicon = Path(args.lexicon).read_text(encoding="utf-8").split() if args.lexicon else []
+    stems = Path(args.stems).read_text(encoding="utf-8").split() if args.stems else None
+    suffixes = Path(args.suffixes).read_text(encoding="utf-8").split() if args.suffixes else []
+    sources = [Path(p).name for p in args.corpus] + [Path(p).name for p in (args.lexicon, args.stems) if p]
     model = Model.train(
-        counts, russian, meta={"sources": [Path(p).name for p in args.corpus]}, use_harmony=args.harmony
+        counts, russian, meta={"sources": sources}, use_harmony=args.harmony,
+        lexicon=lexicon, lexicon_in_table=stems, suffixes=suffixes,
     )
+    dropped = model.prune(args.prune) if args.prune else 0
     model.save(args.output)
-    print(f"built {args.output}: {len(model.words)} word forms, {len(model.chars)} contexts, "
-          f"{len(model.russian)} Russian guard words")
+    print(f"built {args.output}: {len(model.words)} word forms, {len(model.chars)} contexts "
+          f"({dropped} pruned), {len(model.russian)} Russian guard words")
     return 0
 
 
@@ -127,6 +134,10 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("-o", "--output", required=True)
     b.add_argument("--russian", help="file of Russian words to leave untouched")
     b.add_argument("--harmony", action="store_true", help="use vowel-harmony context (experimental)")
+    b.add_argument("--lexicon", help="dictionary word list (scripts/build_lexicon.py): valid spellings")
+    b.add_argument("--stems", help="subset of the lexicon to put in the word table (keeps the model small)")
+    b.add_argument("--suffixes", help="word endings (scripts/build_lexicon.py), for dropped-vowel shorthand")
+    b.add_argument("--prune", type=float, default=0.99, help="drop redundant contexts (0 to keep all)")
     b.set_defaults(func=cmd_build)
 
     e = sub.add_parser("eval", help="strip correct Kazakh text, restore it, report accuracy")

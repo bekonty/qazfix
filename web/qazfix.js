@@ -56,6 +56,10 @@ const hasAmbiguous = (t) => [...t].some((c) => AMBIGUOUS.has(c));
 // ---------------------------------------------------------------- model rules
 const MAX_WINDOW = 4;
 const MAX_Y_SWAPS = 4;
+const MAX_SHORTHAND_SLOTS = 6;
+const VOWELS = new Set("аеиоуыэюяё");
+const BACK_VOWELS = new Set("аоұы");
+const FRONT_VOWELS = new Set("әеөүі");
 const LAUGHTER = /^(?:х[аеоы]|[аеоы]х)+х?$/;
 const CHAT_WORDS = new Set(["ок", "окок", "ия"]);
 
@@ -65,6 +69,8 @@ const BEAM = 12;
 const AUTOCORRECT_THRESHOLD = 0.8;
 const DICT_WEIGHT = 0.9;
 const Y_WEIGHT = 0.6;
+const SHORTHAND_WEIGHT = 0.85;
+const SHORTHAND_GUESS_WEIGHT = 0.6;
 
 function* contexts(s, i, harm) {
   const p = "^" + s + "$";
@@ -86,6 +92,11 @@ function* combinations(arr, r, start = 0, acc = []) {
     yield* combinations(arr, r, i + 1, acc);
     acc.pop();
   }
+}
+
+function* product(chars, n, acc = []) {
+  if (acc.length === n) { yield acc.slice(); return; }
+  for (const c of chars) { acc.push(c); yield* product(chars, n, acc); acc.pop(); }
 }
 
 function* ySwaps(s) {
@@ -134,7 +145,11 @@ function matchCase(template, word) {
 
 function applyCase(template, lower) {
   const t = [...template], l = [...lower];
-  return l.map((r, i) => (isUpperPy(t[i]) ? r.toUpperCase() : r)).join("");
+  if (t.length === l.length) return l.map((r, i) => (isUpperPy(t[i]) ? r.toUpperCase() : r)).join("");
+  // a vowel was put back (бугн -> бүгін): copy the word's overall case
+  if (isUpperPy(template) && t.length > 1) return lower.toUpperCase();
+  if (t.length && isUpperPy(t[0])) return l[0].toUpperCase() + l.slice(1).join("");
+  return lower;
 }
 
 // Same as Python's [^\W\d_]: letters plus non-decimal numerals (², ½, Ⅷ)
@@ -148,6 +163,7 @@ export class Qazfix {
     this.words = data.words;
     this.chars = data.chars;
     this.russian = new Set(data.russian);
+    this.suffixes = new Set(data.suffixes || []);
     this.useHarmony = Boolean(data.meta && data.meta.harmony);
     this.keys = Object.keys(this.words).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
   }
@@ -173,12 +189,97 @@ export class Qazfix {
   restoreWord(lower) {
     if (hasSpecial(lower)) return lower;
     const s = lower;
-    if (!hasAmbiguous(s)) return s;
     if (CHAT_WORDS.has(s) || LAUGHTER.test(s)) return s;
     if (Object.hasOwn(this.words, s)) return this.best(s);
-    const swapped = this.yAsI(s);
+    const swapped = this.keepsY(s) ? null : this.yAsI(s);
     if (swapped) return swapped;
     if (this.russian.has(s)) return s;
+    const rs = this.russianStem(s);
+    if (rs) return s.slice(0, rs) + this.charRestore(s).slice(rs);
+    const expanded = this.expandShorthand(s);
+    if (expanded) return this.restoreWord(expanded);
+    if (!hasAmbiguous(s)) return s;
+    return this.charRestore(s);
+  }
+
+  // ---- dropped-vowel shorthand: баур -> бауыр, бугн -> бүгін
+  has(key) { return Object.hasOwn(this.words, key); }
+
+  isValid(s) {
+    if (this.has(s)) return true;
+    for (let k = 2; k < s.length; k++) {
+      const stem = s.slice(0, k), end = s.slice(k);
+      if (this.has(stem) && this.suffixes.has(end)) {
+        if (end.length === 1 && !VOWELS.has(end) && !VOWELS.has(stem[stem.length - 1])) continue;
+        return true;
+      }
+    }
+    return false;
+  }
+
+  isInflected(s) {
+    for (let k = 3; k < s.length - 1; k++) {
+      if (this.has(s.slice(0, k)) && this.suffixes.has(s.slice(k))) return true;
+    }
+    return false;
+  }
+
+  keepsY(s) {
+    return s.includes("ы") && !(s.includes("е") || s.includes("э")) && this.isInflected(s);
+  }
+
+  russianStem(s) {
+    for (let k = s.length - 1; k > 3; k--) {
+      const stem = s.slice(0, k);
+      if (this.russian.has(stem) && this.suffixes.has(s.slice(k)) && !this.has(stem)) return k;
+    }
+    return 0;
+  }
+
+  disharmony(stripped) {
+    const w = this.has(stripped) ? this.best(stripped) : this.charRestore(stripped);
+    return [...w].some((c) => BACK_VOWELS.has(c)) && [...w].some((c) => FRONT_VOWELS.has(c)) ? 1 : 0;
+  }
+
+  shorthandOptions(s) {
+    if (s.length < 2 || this.isValid(s)) return [];
+    let slots = [];
+    for (let i = 1; i < s.length; i++) {
+      if (!VOWELS.has(s[i]) && (!VOWELS.has(s[i - 1]) || ("уй".includes(s[i - 1]) && i >= 2 && VOWELS.has(s[i - 2])))) slots.push(i);
+    }
+    slots = slots.slice(-MAX_SHORTHAND_SLOTS);
+    for (const n of [1, 2]) {
+      const found = new Map();
+      for (const spots of combinations(slots, n)) {
+        for (const vowels of product(["ы", "и"], n)) {
+          const chars = [...s];
+          const pairs = spots.map((p, i) => [p, vowels[i]]).sort((a, b) => b[0] - a[0]);
+          for (const [pos, v] of pairs) chars.splice(pos, 0, v);
+          const cand = chars.join("");
+          if (this.has(cand)) {
+            let total = 0;
+            for (const c of Object.values(this.words[cand])) total += c;
+            found.set(cand, total);
+          } else if (this.isValid(cand) && !found.has(cand)) {
+            found.set(cand, 0);
+          }
+        }
+      }
+      if (found.size) {
+        const items = [...found].map(([c, n2]) => [c, n2, this.disharmony(c)]);
+        items.sort((a, b) => (b[1] - a[1]) || (a[2] - b[2]) || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+        return items.map(([c, n2]) => [c, n2]);
+      }
+    }
+    return [];
+  }
+
+  expandShorthand(s) {
+    const options = this.shorthandOptions(s);
+    return options.length ? options[0][0] : null;
+  }
+
+  charRestore(s) {
     const harm = this.useHarmony ? harmony(s) : null;
     const out = [...s];
     for (let i = 0; i < s.length; i++) {
@@ -268,18 +369,45 @@ export class Qazfix {
     return out;
   }
 
+  shorthand(s) {
+    const options = this.shorthandOptions(s);
+    if (!options.length) return [new Map(), 0.0];
+    let total = 0;
+    for (const [, c] of options) total += c;
+    const dist = new Map();
+    if (total) {
+      for (const [cand, count] of options) {
+        const w = this.restoreWord(cand);
+        dist.set(w, (dist.get(w) ?? 0.0) + count / total);
+      }
+      return [dist, SHORTHAND_WEIGHT];
+    }
+    dist.set(this.restoreWord(options[0][0]), 1.0 / options.length);
+    for (const [cand] of options.slice(1)) {
+      const w = this.restoreWord(cand);
+      dist.set(w, (dist.get(w) ?? 0.0) + 1.0 / options.length);
+    }
+    return [dist, SHORTHAND_GUESS_WEIGHT];
+  }
+
   candidates(typed, n = 3) {
     const s = typed.toLowerCase();
     if (hasSpecial(s) || CHAT_WORDS.has(s) || LAUGHTER.test(s)) return [{ word: typed, score: 1.0 }];
-    if (![...s].some((c) => AMBIGUOUS.has(c) || c === "ы")) return [{ word: typed, score: 1.0 }];
+
+    const dictP = this.share(s);
+    const yP = !dictP.size && !this.keepsY(s) ? this.yShare(s) : new Map();
+    const rus = this.russian.has(s);
+    const rStem = dictP.size || yP.size || rus ? 0 : this.russianStem(s);
+    if (rStem) return [{ word: matchCase(typed, this.restoreWord(s)), score: 1.0 }];
+    const [shortP, shortW] = dictP.size || yP.size || rus ? [new Map(), 0.0] : this.shorthand(s);
+    if (!shortP.size && ![...s].some((c) => AMBIGUOUS.has(c) || c === "ы")) return [{ word: typed, score: 1.0 }];
 
     const charP = this.charDistribution(s);
-    const dictP = this.share(s);
-    const yP = dictP.size ? new Map() : this.yShare(s);
     let scores;
     if (dictP.size) scores = mix(dictP, DICT_WEIGHT, charP);
     else if (yP.size) scores = mix(yP, Y_WEIGHT, charP);
-    else if (this.russian.has(s)) scores = mix(new Map([[s, 1.0]]), 0.7, charP);
+    else if (rus) scores = mix(new Map([[s, 1.0]]), 0.7, charP);
+    else if (shortP.size) scores = mix(shortP, shortW, charP);
     else scores = charP;
 
     let ranked = [...scores].map(([w, p], idx) => [w, p, idx]);

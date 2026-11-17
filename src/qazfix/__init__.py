@@ -15,7 +15,7 @@ from pathlib import Path
 from .letters import LATIN_LOOKALIKES, is_cyrillic_word, strip
 from .model import Model
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 __all__ = ["Model", "load_model", "restore", "strip"]
 
 _TOKEN = re.compile(r"[^\W\d_]+(?:[-'’][^\W\d_]+)*", re.UNICODE)
@@ -30,7 +30,14 @@ def load_model(path: str | None = None) -> Model:
 
 
 def _apply_case(template: str, lower: str) -> str:
-    return "".join(r.upper() if t.isupper() else r for t, r in zip(template, lower))
+    if len(template) == len(lower):  # letters only swapped: copy case letter by letter
+        return "".join(r.upper() if t.isupper() else r for t, r in zip(template, lower))
+    # a vowel was put back (бугн -> бүгін): copy the word's overall case
+    if template.isupper() and len(template) > 1:
+        return lower.upper()
+    if template[:1].isupper():
+        return lower[:1].upper() + lower[1:]
+    return lower
 
 
 def _fix_token(token: str, model: Model) -> str:
