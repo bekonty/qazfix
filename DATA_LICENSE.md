@@ -13,6 +13,7 @@ included in a GPLv3 work (Creative Commons lists GPLv3 as a compatible license).
 | [hunspell-kk](https://github.com/taem/hunspell-kk) (Kazakh hunspell dictionary; A. Lipchansky, A. Mussayeva, OpenOffice Lingucomponent) | 54k stems and suffix rules → 1.16M word forms; word endings | GPL-2.0+ / LGPL-2.1+ / MPL-1.1 (used under GPL-3.0) |
 | [apertium-kaz](https://github.com/apertium/apertium-kaz) (Apertium Kazakh morphological transducer) | 17k extra stems, including proper names | GPL-3.0 |
 | [FrequencyWords](https://github.com/hermitdave/FrequencyWords) by Hermit Dave, `content/2018/kk/kk_full.txt` (from OpenSubtitles) | Kazakh word frequencies | CC BY-SA 4.0 |
+| [Kazakh Wikipedia](https://kk.wikipedia.org) (`wikimedia/wikipedia`, 238k articles) | word frequencies only (words seen ≥20 times go in the word table) | CC BY-SA 4.0 |
 | [UD Kazakh-KTB](https://github.com/UniversalDependencies/UD_Kazakh-KTB) (training half only) | Kazakh words in context | CC BY-SA 4.0 |
 | [wordfreq](https://github.com/rspeer/wordfreq) Russian word list (top 30,000) | Russian-word guard | CC BY-SA 4.0 (data) |
 

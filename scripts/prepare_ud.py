@@ -10,6 +10,10 @@ import hashlib
 import sys
 from pathlib import Path
 
+# Test documents that may also be in Kazakh Wikipedia. When Wikipedia word counts are used
+# for training, report accuracy on ud_test_clean.txt (test without these) to avoid leakage.
+MAYBE_IN_WIKIPEDIA = {"Шымкент.tagged.txt", "Elizabeth-II.tagged.txt", "wikipedia-news.tagged.txt"}
+
 
 def sentences(conllu: Path):
     doc = text = None
@@ -26,14 +30,17 @@ def sentences(conllu: Path):
 def main(ud_dir: str, out_dir: str) -> None:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
-    train, test = [], []
+    train, test, clean = [], [], []
     for f in sorted(Path(ud_dir).glob("*.conllu")):
         for doc, text in sentences(f):
             bucket = int(hashlib.sha256(doc.encode()).hexdigest(), 16) % 2
             (test if bucket else train).append(text)
+            if bucket and doc not in MAYBE_IN_WIKIPEDIA:
+                clean.append(text)
     (out / "ud_train.txt").write_text("\n".join(train) + "\n", encoding="utf-8")
     (out / "ud_test.txt").write_text("\n".join(test) + "\n", encoding="utf-8")
-    print(f"train {len(train)} sentences, test {len(test)} sentences")
+    (out / "ud_test_clean.txt").write_text("\n".join(clean) + "\n", encoding="utf-8")
+    print(f"train {len(train)} sentences, test {len(test)} sentences ({len(clean)} not from Wikipedia)")
 
 
 if __name__ == "__main__":

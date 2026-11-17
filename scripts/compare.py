@@ -23,6 +23,8 @@ def main():
     ap.add_argument("--lexicon")
     ap.add_argument("--stems")
     ap.add_argument("--suffixes")
+    ap.add_argument("--wiki", help="extra corpus word counts (e.g. Kazakh Wikipedia) for the last row")
+    ap.add_argument("--min-count", type=int, default=20)
     a = ap.parse_args()
     read = lambda f: Path(f).read_text(encoding="utf-8").split() if f else []
     counts = _read_counts(a.train)
@@ -46,8 +48,15 @@ def main():
         big = Model.train(counts, russian, lexicon=read(a.lexicon), lexicon_in_table=read(a.stems) or None,
                           suffixes=read(a.suffixes))
         big.prune(0.99)
-        rows.append(("+ hunspell & Apertium dictionaries = qazfix", evaluate(lines, big)))
-        models["qazfix (with dictionaries)"] = big
+        rows.append(("+ hunspell & Apertium dictionaries", evaluate(lines, big)))
+        models["+ dictionaries"] = big
+    if a.wiki:
+        wiki_counts = counts + _read_counts([a.wiki])
+        top = Model.train(wiki_counts, russian, lexicon=read(a.lexicon), lexicon_in_table=read(a.stems) or None,
+                          suffixes=read(a.suffixes), min_table_count=a.min_count)
+        top.prune(0.99)
+        rows.append(("+ Wikipedia word frequencies = qazfix", evaluate(lines, top)))
+        models["qazfix (+ Wikipedia)"] = top
     print(f"| {'method':44} | accuracy | Kazakh letters restored | correct words kept |")
     print(f"|{'-' * 46}|---------:|------------------------:|-------------------:|")
     for name, r in rows:

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "qazfix"
-version = "0.4.0"
+version = "0.5.0"
 description = "Restore Kazakh letters (ә ғ қ ң ө ұ ү і һ) in text typed without them."
 readme = "README.md"
 requires-python = ">=3.9"

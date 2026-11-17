@@ -80,7 +80,7 @@ def cmd_build(args: argparse.Namespace) -> int:
     sources = [Path(p).name for p in args.corpus] + [Path(p).name for p in (args.lexicon, args.stems) if p]
     model = Model.train(
         counts, russian, meta={"sources": sources}, use_harmony=args.harmony,
-        lexicon=lexicon, lexicon_in_table=stems, suffixes=suffixes,
+        lexicon=lexicon, lexicon_in_table=stems, suffixes=suffixes, min_table_count=args.min_count,
     )
     dropped = model.prune(args.prune) if args.prune else 0
     model.save(args.output)
@@ -137,6 +137,8 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--lexicon", help="dictionary word list (scripts/build_lexicon.py): valid spellings")
     b.add_argument("--stems", help="subset of the lexicon to put in the word table (keeps the model small)")
     b.add_argument("--suffixes", help="word endings (scripts/build_lexicon.py), for dropped-vowel shorthand")
+    b.add_argument("--min-count", type=int, default=1,
+                   help="corpus words seen fewer times stay out of the word table (still train letters)")
     b.add_argument("--prune", type=float, default=0.99, help="drop redundant contexts (0 to keep all)")
     b.set_defaults(func=cmd_build)
 

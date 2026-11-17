@@ -47,3 +47,17 @@ def test_keyboard_autocorrects_shorthand_on_space():
     assert p.should_autocorrect("баур") == "бауыр"
     assert p.candidates("баур")[0].word == "бауыр"
     assert p.should_autocorrect("почтт") is None
+
+
+@pytest.mark.parametrize(
+    "typed, expected",
+    [
+        ("Казыр ма", "Қазір ма"),  # rare "казыр" in Wikipedia must not beat frequent қазір
+        ("Шукыр", "Шүкір"),
+        ("тыс", "тыс"),  # real ы-word with a frequent і-twin (тіс): kept
+        ("кыз", "қыз"),
+        ("Четм", "Четм"),  # Russian slang, not че + тім
+    ],
+)
+def test_frequency_aware_y_and_noise(typed, expected):
+    assert qazfix.restore(typed) == expected

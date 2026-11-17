@@ -57,6 +57,8 @@ const hasAmbiguous = (t) => [...t].some((c) => AMBIGUOUS.has(c));
 const MAX_WINDOW = 4;
 const MAX_Y_SWAPS = 4;
 const MAX_SHORTHAND_SLOTS = 6;
+const MIN_STEM = 3;
+const Y_OVERRIDE = 10;
 const VOWELS = new Set("аеиоуыэюяё");
 const BACK_VOWELS = new Set("аоұы");
 const FRONT_VOWELS = new Set("әеөүі");
@@ -190,7 +192,11 @@ export class Qazfix {
     if (hasSpecial(lower)) return lower;
     const s = lower;
     if (CHAT_WORDS.has(s) || LAUGHTER.test(s)) return s;
-    if (Object.hasOwn(this.words, s)) return this.best(s);
+    if (Object.hasOwn(this.words, s)) {
+      const sw = this.yAsI(s);
+      if (sw && this.yCount(sw) >= Y_OVERRIDE * this.count(s)) return sw; // "казыр" (20) vs "қазір" (4071)
+      return this.best(s);
+    }
     const swapped = this.keepsY(s) ? null : this.yAsI(s);
     if (swapped) return swapped;
     if (this.russian.has(s)) return s;
@@ -205,9 +211,23 @@ export class Qazfix {
   // ---- dropped-vowel shorthand: баур -> бауыр, бугн -> бүгін
   has(key) { return Object.hasOwn(this.words, key); }
 
+  count(key) {
+    let total = 0;
+    for (const c of Object.values(this.words[key] || {})) total += c;
+    return total;
+  }
+
+  yCount(spelling) {
+    return (this.words[strip(spelling)] || {})[spelling] ?? 0;
+  }
+
+  bestOrSelf(key) {
+    return this.has(key) ? this.best(key) : key;
+  }
+
   isValid(s) {
     if (this.has(s)) return true;
-    for (let k = 2; k < s.length; k++) {
+    for (let k = MIN_STEM; k < s.length; k++) {
       const stem = s.slice(0, k), end = s.slice(k);
       if (this.has(stem) && this.suffixes.has(end)) {
         if (end.length === 1 && !VOWELS.has(end) && !VOWELS.has(stem[stem.length - 1])) continue;
@@ -231,7 +251,7 @@ export class Qazfix {
   russianStem(s) {
     for (let k = s.length - 1; k > 3; k--) {
       const stem = s.slice(0, k);
-      if (this.russian.has(stem) && this.suffixes.has(s.slice(k)) && !this.has(stem)) return k;
+      if (this.russian.has(stem) && this.suffixes.has(s.slice(k)) && this.bestOrSelf(stem) === stem) return k;
     }
     return 0;
   }

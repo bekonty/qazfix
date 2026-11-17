@@ -27,6 +27,8 @@ from .letters import AMBIGUOUS, OPTIONS, SPECIAL, harmony, strip
 MAX_WINDOW = 4
 MAX_Y_SWAPS = 4
 MAX_SHORTHAND_SLOTS = 6
+MIN_STEM = 3  # stem + ending checks: shorter stems match too much noise ("че" + "тім")
+Y_OVERRIDE = 10  # ы→і beats an exact table hit only when this many times more frequent
 VOWELS = frozenset("аеиоуыэюяё")
 BACK_VOWELS = frozenset("аоұы")
 FRONT_VOWELS = frozenset("әеөүі")
@@ -37,6 +39,18 @@ FRONT_VOWELS = frozenset("әеөүі")
 LAUGHTER = re.compile(r"^(?:х[аеоы]|[аеоы]х)+х?$")
 CHAT_WORDS = frozenset({"ок", "окок", "ия"})
 FORMAT_VERSION = 1
+
+
+def _russian_ok(r: str, words: dict, lex: set) -> bool:
+    """Keep a Russian word in the guard unless Kazakh spells the same letters differently.
+
+    "список" appears in Kazakh Wikipedia too, spelled the same: still Russian.
+    "кон" is also Kazakh "қон": not protected.
+    """
+    spellings = words.get(r, {})
+    if any(w != r for w in spellings):
+        return False
+    return r not in lex or not spellings
 
 
 def _contexts(stripped: str, i: int, harm: str | None):
@@ -76,6 +90,7 @@ class Model:
         lexicon_in_table: Iterable[str] | None = None,
         min_context: int = 2,
         suffixes: Iterable[str] = (),
+        min_table_count: int = 1,
     ) -> Model:
         """Train from corpus word counts plus an optional dictionary word list.
 
@@ -86,6 +101,8 @@ class Model:
         lexicon_in_table: which dictionary words get their own word-table entry
             (default: all of `lexicon`). Passing just the stems keeps the model small;
             the character model still knows every inflected form.
+        min_table_count: corpus words seen fewer times stay out of the word table
+            (they still teach the character model). Keeps a Wikipedia-sized model small.
         """
         words: dict[str, Counter] = defaultdict(Counter)
         chars: dict[str, Counter] = defaultdict(Counter)
@@ -95,8 +112,9 @@ class Model:
         types = set()
         for word, count in word_counts.items():
             w = word.lower()
-            words[strip(w)][w] += count
             types.add(w)
+            if count >= min_table_count:  # rarer words still teach the character model
+                words[strip(w)][w] += count
         types |= lex
 
         # Dictionary words fill gaps, they don't dilute corpus frequencies:
@@ -126,11 +144,10 @@ class Model:
                     words[key] = Counter(valid)
                 elif not valid and key in lex_by_key:
                     words[key] = Counter(dict.fromkeys(sorted(lex_by_key[key]), 1))
-        kazakh_known = set(words) | {strip(w) for w in lex}
         return cls(
             words={k: dict(v) for k, v in words.items()},
             chars={k: dict(v) for k, v in chars.items() if sum(v.values()) >= min_context},
-            russian={r for r in (x.lower() for x in russian) if strip(r) == r and r not in kazakh_known},
+            russian={r for r in (x.lower() for x in russian) if strip(r) == r and _russian_ok(r, words, lex)},
             meta={**(meta or {}), "harmony": use_harmony},
             suffixes={strip(x.lower()) for x in suffixes if x},
         )
@@ -176,6 +193,9 @@ class Model:
         if s in CHAT_WORDS or LAUGHTER.match(s):
             return s
         if s in self.words:
+            swapped = self._y_as_i(s)
+            if swapped and self._y_count(swapped) >= Y_OVERRIDE * self._count(s):
+                return swapped  # "казыр" (20, noise) vs "қазір" (4071): the typist meant і
             return self._best(s)
         swapped = None if self._keeps_y(s) else self._y_as_i(s)
         if swapped:
@@ -210,7 +230,7 @@ class Model:
         """A known word, or a known stem + a known ending (тілдерін = тіл + дерін)."""
         if s in self.words:
             return True
-        for k in range(2, len(s)):
+        for k in range(MIN_STEM, len(s)):
             stem, end = s[:k], s[k:]
             if stem in self.words and end in self.suffixes:
                 # a one-letter consonant ending (-м, -н, -ң: possessive) only follows a vowel: бала-м
@@ -239,7 +259,8 @@ class Model:
         списокта = список + та, этажга = этаж + га. Only the ending is restored.
         """
         for k in range(len(s) - 1, 3, -1):
-            if s[:k] in self.russian and s[k:] in self.suffixes and s[:k] not in self.words:
+            stem = s[:k]
+            if stem in self.russian and s[k:] in self.suffixes and self._best_or_self(stem) == stem:
                 return k
         return 0
 
@@ -281,6 +302,18 @@ class Model:
     def expand_shorthand(self, s: str) -> str | None:
         options = self.shorthand_options(s)
         return options[0][0] if options else None
+
+    def _best_or_self(self, key: str) -> str:
+        return self._best(key) if key in self.words else key
+
+    def _count(self, key: str) -> int:
+        total = 0
+        for c in self.words.get(key, {}).values():
+            total += c
+        return total
+
+    def _y_count(self, spelling: str) -> int:
+        return self.words.get(strip(spelling), {}).get(spelling, 0)
 
     def _best(self, stripped: str) -> str:
         return max(self.words[stripped].items(), key=lambda kv: kv[1])[0]
