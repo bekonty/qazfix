@@ -22,8 +22,16 @@ class Report:
         return self.correct / self.words if self.words else 0.0
 
 
-def evaluate(lines, model: Model | None, restore_fn=None) -> Report:
-    """`restore_fn(lower_word) -> lower_word`; defaults to the model's restore_word."""
+def strip_chat(text: str) -> str:
+    """Strip like a chat user who types і as ы instead of и ("быз" for біз)."""
+    return strip(text.replace("і", "ы").replace("І", "Ы"))
+
+
+def evaluate(lines, model: Model | None, restore_fn=None, stripper=strip) -> Report:
+    """`restore_fn(lower_word) -> lower_word`; defaults to the model's restore_word.
+
+    `stripper` simulates how people type: `strip` (і→и) or `strip_chat` (і→ы).
+    """
     from . import _TOKEN
 
     fn = restore_fn or model.restore_word
@@ -33,8 +41,8 @@ def evaluate(lines, model: Model | None, restore_fn=None) -> Report:
             if not is_cyrillic_word(tok):
                 continue
             gold = tok.lower()
-            stripped = strip(gold)
-            if not any(c in AMBIGUOUS for c in stripped):
+            stripped = stripper(gold)
+            if stripped == gold and not any(c in AMBIGUOUS for c in stripped):
                 continue
             r.words += 1
             ok = fn(stripped) == gold

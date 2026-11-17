@@ -74,6 +74,23 @@ python scripts/compare.py kk_full.txt data/ud_train.txt --test data/ud_test.txt 
   remaining errors are names it has never seen: `Бекболат → Беқболат`, `Шолпан`, `Шымкент`.
   Training on Kazakh Wikipedia is the next step (see below).
 
+## Real-world check: chat messages
+
+Formal text is the easy case. Running qazfix on a real WhatsApp chat (typed casually, mixing Kazakh
+and Russian) exposed problems the treebank test could not:
+
+| found in real chat | example | status |
+|---|---|---|
+| words already typed correctly got changed | `қазір → қәзір` | **fixed**: words containing a Kazakh letter are left alone |
+| many people type **і as ы**, not и | `негызы`, `озым`, `быреуы` | **fixed**: ы→і is tried against the word table |
+| chat words became real but wrong words | `ок → оқ`, `хахаха → хаһаһа` | **fixed**: chat words and laughter are left alone |
+| Russian words with Kazakh endings | `списокта → спісоқта` | open |
+| shorthand with dropped vowels | `бугн → бүғн` | open (should be left alone) |
+
+On the held-out test text typed the chat way (і as ы), handling ы→і raised accuracy from
+**65.7% to 76.1%**, with no change on normally typed text. To measure qazfix on your own messages,
+see `scripts/pair_eval.py` (keep chat files out of git).
+
 ## How it works
 
 1. **Seen word:** pick its most frequent spelling (`казак` → `қазақ`).
@@ -98,6 +115,9 @@ Any plain Kazakh text works as a corpus, as do `word count` frequency lists.
 ## Roadmap
 
 - [x] v0.1: library, CLI, character-context model, Russian guard, honest evaluation
+- [x] v0.1.1: fixes from real chat testing (ы typed for і, chat words, already-correct words)
+- [ ] Hand-checked accuracy on real chat messages
+- [ ] Leave Russian words with Kazakh endings alone (`списокта`, `этажго`)
 - [ ] Train on Kazakh Wikipedia and publish before/after numbers
 - [ ] Two-word context for true ambiguities (`казак`/`қазақ`, `он`/`өң`)
 - [ ] Browser demo on GitHub Pages

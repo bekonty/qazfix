@@ -14,3 +14,8 @@ data/
 kk_full.txt
 russian.txt
 UD_Kazakh-KTB/
+# private test data: never commit chats
+chat*.txt
+chat*.md
+typed.txt
+gold.txt

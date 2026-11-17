@@ -33,9 +33,13 @@ punctuation can always be preserved exactly.
 
 For each Cyrillic word (lowercased; case is re-applied per character after):
 
+0. **Leave alone**: words already containing a Kazakh letter (the writer is typing
+   properly), chat words (`ок`, `окок`, `ия`) and laughter (`хахаха`).
 1. **Word table.** If the stripped word was seen in training, output its most
    frequent original spelling (e.g. `казак` → `қазақ`, which beats the rarer
    Russian-origin `казак` "Cossack").
+1b. **ы typed for і.** Many people type і as ы (`быз` for біз). If the word is
+   unknown, try turning ы into і and accept only word-table hits.
 2. **Russian guard.** Else, if it is a common Russian word, leave it unchanged.
    Kazakh speakers mix Russian in constantly ("ертең встреча бар ма?").
 3. **Character context.** Else, decide each ambiguous letter from up to 4

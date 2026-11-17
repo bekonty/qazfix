@@ -7,7 +7,7 @@ import argparse
 from pathlib import Path
 
 from qazfix.cli import _read_counts
-from qazfix.evaluate import evaluate
+from qazfix.evaluate import evaluate, strip_chat
 from qazfix.model import Model
 
 
@@ -39,6 +39,11 @@ def main():
         print(f"| {name:44} | {100 * r.accuracy:7.1f}% | {100 * r.special_fixed / r.had_special:22.1f}% "
               f"| {100 * r.plain_kept / r.plain:17.1f}% |")
     print(f"\n{rows[0][1].words} test words containing an ambiguous letter")
+
+    print("\nSame test text, typed the chat way (і as ы, e.g. 'быз' for біз):")
+    for name, m in [("dictionary + character context", no_guard), ("qazfix default", full)]:
+        r = evaluate(lines, m, stripper=strip_chat)
+        print(f"  {name:32} {100 * r.accuracy:5.1f}%  ({r.words} words)")
 
 
 if __name__ == "__main__":
