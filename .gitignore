@@ -19,3 +19,6 @@ chat*.txt
 chat*.md
 typed.txt
 gold.txt
+# generated: qazfix export-web web/model.json
+web/model.json
+tests/js/fixtures.json

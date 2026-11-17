@@ -21,3 +21,20 @@ jobs:
       - run: pytest -q
       - name: Smoke test the CLI
         run: qazfix "Казак тили"
+
+  javascript:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: pip install -e .
+      - run: qazfix export-web web/model.json
+      - name: Python answers for thousands of inputs
+        run: python scripts/make_js_fixtures.py web/model.json tests/js/fixtures.json
+      - name: qazfix.js must match them exactly
+        run: node tests/js/crosscheck.mjs web/model.json tests/js/fixtures.json

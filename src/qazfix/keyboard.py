@@ -147,7 +147,12 @@ class Predictor:
                 continue
             probs = self._letter_probs(s, i)
             beam = heapq.nlargest(BEAM, ((p * q, w + o) for p, w in beam for o, q in probs.items()))
-        total = sum(p for p, _ in beam)
+        # A plain loop on purpose: Python 3.12+ sum() uses compensated float
+        # addition, which would make results differ across Python versions and
+        # from qazfix.js.
+        total = 0.0
+        for p, _ in beam:
+            total += p
         return {w: p / total for p, w in beam}
 
 

@@ -12,6 +12,8 @@ Kazakh has nine letters most keyboards make awkward: **ә ғ қ ң ө ұ ү і �
 text-to-speech and AI models can't handle it properly. qazfix puts the letters back, using context
 to tell `казак` (Cossack) from `қазақ` (Kazakh).
 
+**Try it in your browser (phone or laptop, nothing to install): https://bekonty.github.io/qazfix/**
+
 - **Fast and tiny:** about 70,000 words/second, a 210 KB model, zero dependencies.
 - **Safe:** keeps case, spacing and punctuation exactly. Never changes a Kazakh letter you already
   typed. Leaves Russian words (`встреча`) and Latin text alone.
@@ -80,6 +82,32 @@ people far more than a suggestion they have to tap, so the default (0.8) favours
 | 0.95 | 99.7% | 43.8% |
 
 (normal typing; the full table, including chat typing, comes from `scripts/keyboard_eval.py`)
+
+## In the browser: `qazfix.js`
+
+`web/qazfix.js` is a dependency-free JavaScript port for web pages and keyboards. It gives exactly
+the same answers as the Python package: CI checks this on about 9,000 generated inputs
+(known words, unseen inflections, ы typed for і, Russian words, chat words, case).
+
+```js
+import { loadModel } from "./qazfix.js";
+const q = await loadModel("model.json");   // make it with: qazfix export-web model.json
+q.restore("Мен казак тилинде сойлеймин");  // "Мен қазақ тілінде сөйлеймін"
+q.candidates("казак");                     // [{word: "қазақ", score: 0.9628}, ...]
+q.shouldAutocorrect("казак");              // "қазақ" (or null when unsure)
+q.complete("казакс");                      // [{word: "қазақстан", ...}, ...]
+```
+
+The demo page (`web/index.html`) shows a suggestion bar on top of the text box, auto-corrects on
+space only when confident, and lets Backspace undo an auto-correction (it then remembers not to
+redo that word). Everything runs in the visitor's browser; no text is sent anywhere.
+
+Run it locally:
+
+```bash
+qazfix export-web web/model.json
+python -m http.server --directory web 8000    # open http://localhost:8000
+```
 
 ## How well does it work?
 
@@ -160,7 +188,7 @@ Any plain Kazakh text works as a corpus, as do `word count` frequency lists.
 - [x] v0.1: library, CLI, character-context model, Russian guard, honest evaluation
 - [x] v0.1.1: fixes from real chat testing (ы typed for і, chat words, already-correct words)
 - [x] v0.2: keyboard mode: ranked suggestions, confident auto-correct, completion
-- [ ] JavaScript port (`qazfix.js`) with a Python-vs-JS cross-check test
+- [x] v0.3: JavaScript port (`qazfix.js`), exact Python-vs-JS check in CI, demo page on GitHub Pages
 - [ ] Suggestion bar in the Kazakh Adaptive Keyboard web app
 - [ ] Hand-checked accuracy on real chat messages
 - [ ] Leave Russian words with Kazakh endings alone (`списокта`, `этажго`)

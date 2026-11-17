@@ -52,6 +52,22 @@ def cmd_complete(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_export_web(args: argparse.Namespace) -> int:
+    import json
+
+    m = load_model(args.model)
+    data = {
+        "format": 1,
+        "meta": m.meta,
+        "words": m.words,
+        "chars": m.chars,
+        "russian": sorted(m.russian),
+    }
+    Path(args.output).write_text(json.dumps(data, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"wrote {args.output} ({Path(args.output).stat().st_size // 1024} KB)")
+    return 0
+
+
 def cmd_build(args: argparse.Namespace) -> int:
     counts = _read_counts(args.corpus)
     russian = []
@@ -77,7 +93,7 @@ def cmd_eval(args: argparse.Namespace) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    if argv and argv[0] not in ("build", "eval", "fix", "suggest", "complete", "-h", "--help"):
+    if argv and argv[0] not in ("build", "eval", "fix", "suggest", "complete", "export-web", "-h", "--help"):
         argv.insert(0, "fix")  # `qazfix "text"` is shorthand for `qazfix fix "text"`
     if not argv:
         argv = ["fix", "-"]
@@ -100,6 +116,11 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("-n", type=int, default=3)
     c.add_argument("--model")
     c.set_defaults(func=cmd_complete)
+
+    x = sub.add_parser("export-web", help="write the model as plain JSON for qazfix.js")
+    x.add_argument("output")
+    x.add_argument("--model")
+    x.set_defaults(func=cmd_export_web)
 
     b = sub.add_parser("build", help="train a model from Kazakh text or word-frequency files")
     b.add_argument("corpus", nargs="+")

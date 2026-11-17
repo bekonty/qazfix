@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="kk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>qazfix: қазақ әріптерін қайтару</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231D2340'/%3E%3Ctext x='16' y='23' font-family='Georgia,serif' font-weight='700' font-size='20' text-anchor='middle' fill='%23E3AE2F'%3E%D2%9B%3C/text%3E%3C/svg%3E">
+<meta name="description" content="Type Kazakh on any keyboard and qazfix restores ә ғ қ ң ө ұ ү і һ. Runs in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=PT+Sans:wght@400;700&family=PT+Serif:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1D2340;
+    --paper: #F6F7F4;
+    --saffron: #E3AE2F;
+    --teal: #0E6B68;
+    --slate: #6A6F85;
+    --line: #D9DBE2;
+    --serif: "PT Serif", Georgia, serif;
+    --sans: "PT Sans", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font: 400 1.0625rem/1.5 var(--sans);
+  }
+  main {
+    max-width: 40rem;
+    margin: 0 auto;
+    padding: 1.25rem 1.25rem 4rem;
+  }
+
+  /* top line */
+  .masthead { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2.75rem; }
+  .brand { font-weight: 700; letter-spacing: 0.01em; }
+  .masthead a { color: var(--slate); }
+
+  /* the one bold moment: typed word becomes the right word */
+  h1 {
+    font: 700 clamp(2.75rem, 11vw, 4.5rem)/1.02 var(--serif);
+    margin: 0 0 0.75rem;
+    letter-spacing: -0.015em;
+  }
+  h1 .l { display: inline-block; white-space: pre; }
+  h1 .fixed {
+    background: linear-gradient(transparent 62%, var(--saffron) 62%, var(--saffron) 92%, transparent 92%);
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    h1 .l.swap { animation: settle 420ms cubic-bezier(.2,.8,.2,1) both; }
+    @keyframes settle {
+      from { transform: translateY(-0.35em); opacity: 0; }
+      to { transform: none; opacity: 1; }
+    }
+  }
+  .lede { color: var(--slate); max-width: 32rem; margin: 0 0 2rem; }
+
+  /* editor: suggestion bar sits on the text box, like a phone keyboard bar */
+  .editor { border: 1.5px solid var(--ink); border-radius: 14px; background: #fff; overflow: hidden; }
+  .editor:focus-within { box-shadow: 0 0 0 3px rgba(14, 107, 104, 0.25); }
+  .bar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border-bottom: 1px solid var(--line);
+    min-height: 3rem;
+  }
+  .bar button {
+    font: 400 1.0625rem var(--sans);
+    color: var(--ink);
+    background: none;
+    border: 0;
+    padding: 0.7rem 0.4rem;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bar button + button { border-left: 1px solid var(--line); }
+  .bar button.best { font-weight: 700; }
+  .bar button:hover { background: #F1F3F6; }
+  .bar button:focus-visible { outline: 3px solid var(--teal); outline-offset: -3px; }
+  .bar .hint { grid-column: 1 / -1; color: var(--slate); padding: 0.75rem 1rem; font-size: 0.95rem; }
+  textarea {
+    display: block;
+    width: 100%;
+    min-height: 11rem;
+    border: 0;
+    padding: 1rem;
+    font: 400 1.1875rem/1.55 var(--sans);
+    color: var(--ink);
+    resize: vertical;
+    outline: none;
+    background: transparent;
+  }
+  textarea::placeholder { color: #9A9EAE; }
+
+  .actions { display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; align-items: center; margin-top: 1rem; }
+  .primary, .secondary {
+    font: 700 1rem var(--sans);
+    border-radius: 999px;
+    padding: 0.7rem 1.25rem;
+    cursor: pointer;
+  }
+  .primary { background: var(--teal); color: #fff; border: 1.5px solid var(--teal); }
+  .primary:hover { background: #0B5956; }
+  .secondary { background: none; color: var(--ink); border: 1.5px solid var(--ink); }
+  .primary:focus-visible, .secondary:focus-visible, .toggle input:focus-visible { outline: 3px solid var(--saffron); outline-offset: 2px; }
+  .toggle { display: inline-flex; gap: 0.5rem; align-items: center; color: var(--slate); margin-left: auto; cursor: pointer; }
+  .toggle input { width: 1.1rem; height: 1.1rem; accent-color: var(--teal); }
+  .status { min-height: 1.5rem; margin: 0.75rem 0 0; color: var(--teal); font-size: 0.95rem; }
+
+  /* quiet facts */
+  .facts { margin-top: 3.5rem; border-top: 1px solid var(--line); padding-top: 1.5rem; }
+  .facts p { margin: 0 0 1rem; max-width: 34rem; }
+  .facts .letters { font: 700 1.5rem/1.3 var(--serif); letter-spacing: 0.08em; }
+  .facts .letters span { background: linear-gradient(transparent 62%, var(--saffron) 62%, var(--saffron) 92%, transparent 92%); }
+  .about { color: var(--slate); font-size: 0.95rem; }
+  .about a, .masthead a { color: inherit; text-underline-offset: 3px; }
+  .error { color: #A33A2B; }
+
+  @media (min-width: 40rem) {
+    main { padding-top: 2rem; }
+    .masthead { margin-bottom: 4rem; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="masthead">
+    <span class="brand">qazfix</span>
+    <a href="https://github.com/bekonty/qazfix">GitHub</a>
+  </div>
+
+  <h1 id="hero" aria-label="қазақ тілі">казак тили</h1>
+  <p class="lede">Кез келген пернетақтада жаза беріңіз. Жетіспейтін әріптерді qazfix өзі қояды.</p>
+
+  <div class="editor">
+    <div class="bar" id="bar" aria-label="Ұсыныстар" aria-live="polite">
+      <span class="hint">Жаза бастаңыз, ұсыныстар осында шығады</span>
+    </div>
+    <textarea id="text" rows="6" spellcheck="false" autocapitalize="sentences"
+      aria-label="Мәтін" placeholder="Мысалы: биз ертен Алматыга барамыз"></textarea>
+  </div>
+
+  <div class="actions">
+    <button class="primary" id="fixall" type="button">Барлығын түзету</button>
+    <button class="secondary" id="copy" type="button">Көшіру</button>
+    <label class="toggle"><input type="checkbox" id="auto" checked> Автотүзету</label>
+  </div>
+  <p class="status" id="status" role="status"></p>
+
+  <section class="facts">
+    <p class="letters" aria-label="ә ғ қ ң ө ұ ү і һ">
+      <span>ә</span> <span>ғ</span> <span>қ</span> <span>ң</span> <span>ө</span>
+      <span>ұ</span> <span>ү</span> <span>і</span> <span>һ</span>
+    </p>
+    <p>Орыс пернетақтасында бұл әріптер жоқ, сондықтан көбі «казак тили» деп жазады. qazfix сөздің контекстіне қарап дұрыс әріпті таңдайды. Сенімді болмаса, өзгертпей, тек ұсыныс береді.</p>
+    <p>Бәрі браузерде жұмыс істейді: мәтініңіз ешқайда жіберілмейді.</p>
+    <p class="about" lang="en">qazfix restores Kazakh letters in text typed without them. On held-out test text the right word is in the suggestion bar 96.8% of the time, and automatic corrections are right 98.6% of the time. Open source on <a href="https://github.com/bekonty/qazfix">GitHub</a>.</p>
+  </section>
+</main>
+
+<script type="module">
+import { loadModel } from "./qazfix.js";
+
+const text = document.getElementById("text");
+const bar = document.getElementById("bar");
+const statusEl = document.getElementById("status");
+const auto = document.getElementById("auto");
+const hero = document.getElementById("hero");
+const WORD_CHAR = /[\p{L}\p{M}'’-]/u;
+const SEPARATOR = /[\s.,!?;:)]/u;
+let q = null;
+let undo = null; // {start, original, replacement, sep}
+const rejected = new Set(); // words whose auto-correction the user undid: don't redo them
+
+// ---- hero: the typed word settles into the right word, once
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function drawHero(typed, fixed, animate) {
+  hero.innerHTML = "";
+  [...fixed].forEach((ch, i) => {
+    const span = document.createElement("span");
+    span.className = "l";
+    span.textContent = animate ? typed[i] : ch;
+    if (ch !== typed[i]) {
+      span.classList.add("fixed");
+      if (animate) {
+        setTimeout(() => { span.textContent = ch; span.classList.add("swap"); }, 700 + i * 90);
+      }
+    }
+    hero.appendChild(span);
+  });
+}
+drawHero("казак тили", "қазақ тілі", !reduced);
+
+// ---- helpers
+function say(msg, isError = false) {
+  statusEl.textContent = msg;
+  statusEl.classList.toggle("error", isError);
+}
+
+function wordBefore(pos) {
+  const v = text.value;
+  let start = pos;
+  while (start > 0 && WORD_CHAR.test(v[start - 1])) start--;
+  return { start, end: pos, word: v.slice(start, pos) };
+}
+
+function replaceRange(start, end, insert, caret) {
+  text.setRangeText(insert, start, end, "end");
+  if (caret !== undefined) text.setSelectionRange(caret, caret);
+}
+
+function showSuggestions(list, onPick) {
+  bar.innerHTML = "";
+  if (!list.length) {
+    bar.innerHTML = '<span class="hint">Жаза бастаңыз, ұсыныстар осында шығады</span>';
+    return;
+  }
+  list.slice(0, 3).forEach((s, i) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = s;
+    if (i === 0) b.classList.add("best");
+    // pointerdown keeps the keyboard open on phones
+    b.addEventListener("pointerdown", (e) => { e.preventDefault(); onPick(s); });
+    b.addEventListener("click", (e) => { if (e.detail === 0) onPick(s); }); // keyboard activation
+    bar.appendChild(b);
+  });
+}
+
+function suggestFor(word) {
+  if (!q || [...word].length < 2) return [];
+  const seen = new Set();
+  const out = [];
+  // Known words that fit (completions) beat a guess at an unfinished word.
+  for (const s of [...q.complete(word, 3), ...q.candidates(word, 3)]) {
+    if (!seen.has(s.word)) { seen.add(s.word); out.push(s.word); }
+  }
+  return out;
+}
+
+function refreshBar() {
+  const { start, end, word } = wordBefore(text.selectionStart);
+  showSuggestions(suggestFor(word), (pick) => {
+    undo = null;
+    replaceRange(start, end, pick + " ", start + pick.length + 1);
+    text.focus();
+    refreshBar();
+  });
+}
+
+// ---- typing: auto-correct the word you just finished, if confident
+text.addEventListener("input", (e) => {
+  if (!q) return;
+  const pos = text.selectionStart;
+  const v = text.value;
+  const typedSep = e.inputType && e.inputType.startsWith("insert") && pos > 0 && SEPARATOR.test(v[pos - 1]);
+  if (typedSep && auto.checked) {
+    const { start, end, word } = wordBefore(pos - 1);
+    const fix = word && !rejected.has(word.toLowerCase()) && q.shouldAutocorrect(word);
+    if (fix) {
+      const sep = v[pos - 1];
+      replaceRange(start, end, fix, start + fix.length + 1);
+      undo = { start, original: word, replacement: fix, sep };
+      say(`${word} → ${fix}. Қайтару үшін ← Backspace`);
+    } else {
+      undo = null;
+    }
+  } else if (e.inputType !== "deleteContentBackward") {
+    undo = null;
+  }
+  refreshBar();
+});
+
+// Backspace right after an auto-correction brings back what you typed
+text.addEventListener("beforeinput", (e) => {
+  if (e.inputType !== "deleteContentBackward" || !undo) return;
+  const caret = undo.start + undo.replacement.length + undo.sep.length;
+  if (text.selectionStart === caret && text.selectionEnd === caret) {
+    e.preventDefault();
+    replaceRange(undo.start, caret, undo.original, undo.start + undo.original.length);
+    rejected.add(undo.original.toLowerCase());
+    say(`«${undo.original}» қалдырылды`);
+    undo = null;
+    refreshBar();
+  }
+});
+
+["click", "keyup"].forEach((ev) => text.addEventListener(ev, (e) => {
+  if (ev === "keyup" && !e.key.startsWith("Arrow")) return;
+  refreshBar();
+}));
+
+// ---- whole-text actions
+document.getElementById("fixall").addEventListener("click", () => {
+  if (!q) return;
+  const before = text.value;
+  const after = q.restore(before);
+  let changed = 0;
+  for (let i = 0; i < before.length; i++) if (before[i] !== after[i]) changed++;
+  text.value = after;
+  undo = null;
+  say(changed ? `${changed} әріп түзетілді` : "Түзететін әріп табылмады");
+  refreshBar();
+});
+
+document.getElementById("copy").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(text.value);
+    say("Көшірілді");
+  } catch {
+    text.select();
+    say("Көшіру үшін Ctrl+C басыңыз", true);
+  }
+});
+
+// ---- load the model
+loadModel("model.json")
+  .then((model) => { q = model; refreshBar(); })
+  .catch(() => say("Модель жүктелмеді. Бетті жаңартып көріңіз.", true));
+</script>
+</body>
+</html>
